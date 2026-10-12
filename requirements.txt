@@ -1,0 +1,19 @@
+# SearchJev training dependencies (Python 3.12, Linux x86_64, CUDA GPUs).
+# Versions used for the paper runs are pinned in pyproject.toml.
+torch>=2.8
+transformers>=5.0
+peft>=0.18
+accelerate>=1.0
+datasets>=3.0
+safetensors>=0.8
+sentencepiece>=0.2
+huggingface_hub>=1.0
+flash-linear-attention      # `fla` kernels for the Qwen3.5 Gated DeltaNet layers
+tilelang                    # backend used by fla on some kernels
+numpy>=1.26
+pyyaml>=6.0
+tqdm
+
+# optional
+bitsandbytes>=0.45          # QLoRA (model.load_in_4bit)
+wandb                       # run.report_to: wandb

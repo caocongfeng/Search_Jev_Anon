@@ -1,0 +1,126 @@
+# SearchJev training configuration.
+#
+# These values reproduce the paper models (SearchJev-0.8B / 4B / 9B): LoRA on Qwen3.5 instruct
+# backbones, one epoch over the SearchDecision-Bench training split (unified_v2), effective batch
+# 132 (22 per device x 6 GPUs), soft-label cross-entropy + 0.5 x Brier, per-question-type
+# temperature scaling on validation data.
+#
+# Resolution order (later wins): embedded defaults (training/config.py) -> this file
+# -> presets[model.size] -> --set key=value overrides -> CLI flags (--model, --gpus, ...).
+
+run:
+  name: searchjev-{size}           # output dir = <output_root>/<name>; {size} -> 0.8b / 4b / 9b
+  output_root: outputs             # relative paths are resolved against the repository root
+  seed: 42                         # data sub-sampling, option permutation and training
+  hf_home: null                    # HF cache directory to export as HF_HOME (null = keep the environment's)
+  report_to: none                  # none | wandb | tensorboard  (--wandb PROJECT turns wandb on)
+  wandb_project: SearchJev
+  wandb_entity: null               # null = default entity of `wandb login` (or $WANDB_ENTITY)
+
+model:
+  size: 4B                         # 0.8B | 2B | 4B | 9B | 27B -> Qwen/Qwen3.5-<size>[-Base]
+  variant: instruct                # instruct | base
+  name: null                       # explicit HF id or local path; overrides size/variant
+  dtype: bfloat16                  # bfloat16 | float16 | float32
+  attn_implementation: sdpa        # implementation of the full-attention layers
+  load_in_4bit: false              # QLoRA (bitsandbytes nf4)
+  gradient_checkpointing: true
+
+lora:
+  enabled: true                    # false -> full fine-tuning
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  # attention, Gated DeltaNet (in_proj_* / out_proj) and MLP projections
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj, in_proj_qkv, in_proj_z, in_proj_b, in_proj_a, out_proj]
+  init_adapter: null               # continue from an existing adapter directory
+
+labels:
+  alphabet: extended               # basic (A-Z) | extended (~170 single-token labels) | explicit list
+  max_options: null                # max options per question; null = alphabet size
+  over_limit_policy: drop          # drop | subsample (keep the gold option + a random subset)
+
+prompt:
+  style: auto                      # auto (chat template if available) | chat | plain
+  language: bilingual              # en | zh | bilingual (system-prompt wording)
+  max_length: 2048                 # token budget; only the STATE is truncated, options never are
+
+data:
+  root: data/SearchJev-V2          # <root>/<family>/<dataset>.jsonl (see README: data preparation)
+  mode: sampled                    # sampled | full (global; family_modes overrides per family)
+  families: [unified_v2]           # trained on (train + val): SearchDecision-Bench
+  family_modes:
+    unified_v2: full               # unified_v2 has no sampled subset
+  val_only_families: [classification, ranking, search]   # SearchJev-V1: validation / calibration only
+  processed_dir: data/processed    # cache: <processed_dir>/<mode>/<family>/{train,val}.jsonl
+  train_splits: [train]            # never 'test'
+  val_split: val
+  val_fallback_per_dataset: 300    # sampled mode: val rows streamed per dataset when a subset has none
+  max_val_per_dataset: 500
+  max_train_per_dataset: null
+  dedup_val_against_train: true    # drop val examples identical to a training example
+  exclude_test_overlap: true       # drop train/val examples whose state occurs in a test row of any prepared family
+  include_datasets: null
+  exclude_datasets: []
+  permutation:                     # shuffle options of unordered fields during training (position bias)
+    choice: true
+    noul: true
+    score: false                   # ordinal scales keep their order
+    copies: 1
+  prepare_workers: 8
+  rebuild: false
+
+training:
+  epochs: 1
+  per_device_train_batch_size: 22  # x 6 GPUs = 132 (presets below set the same value per size)
+  per_device_eval_batch_size: 32
+  gradient_accumulation_steps: 1   # effective batch = per_device x accum x number of GPUs
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  lr_scheduler_type: cosine
+  max_grad_norm: 1.0
+  bf16: true
+  logging_steps: 10
+  eval_strategy: steps             # no | steps | epoch
+  eval_steps: 500
+  save_steps: 500
+  save_total_limit: 3
+  max_steps: -1                    # > 0 overrides epochs
+  max_train_examples: null
+  max_eval_examples: 2000          # in-training evaluation subset of val
+  dataloader_num_workers: 8
+  group_by_length: true            # batch prompts of similar length together (less padding)
+  optim: adamw_torch_fused
+  resume_from_checkpoint: null     # null | auto | path
+
+loss:
+  type: ce                         # ce | kl (soft-label cross-entropy or KL to the soft target)
+  lambda_brier: 0.5                # L = CE + lambda_brier * Brier
+  sample_weights:                  # training-loss weights by label reliability (null = unweighted)
+    weak: 0.5                      # rows with meta.weak (demonstrations, constructed rewrites, LLM labels)
+    label_tier:
+      llm_teacher: 0.5             # LLM-teacher labels; the minimum of all matching weights is used
+
+calibration:
+  enabled: true                    # temperature scaling after training
+  fraction: 0.5                    # val is split by id hash: this part fits the temperatures
+  per_question_type: true          # one temperature per question type (+ a global fallback)
+  max_examples: 5000
+
+evaluation:
+  max_examples: 5000               # held-out half of val evaluated after training (raw vs calibrated)
+
+distributed:
+  backend: auto                    # auto | none | ddp (auto: torchrun DDP when > 1 GPU is selected)
+  num_gpus: all                    # all | N (N < visible: the GPUs with the most free memory)
+  gpus: null                       # explicit ids, e.g. "0,1,2,3,4,5" (wins over num_gpus)
+  gpu_selection: free              # free | first
+  min_free_gb: 16                  # only GPUs with at least this much free memory are used
+
+presets:
+  "0.8B": {training: {per_device_train_batch_size: 22, gradient_accumulation_steps: 1}}
+  "2B":   {training: {per_device_train_batch_size: 22, gradient_accumulation_steps: 1}}
+  "4B":   {training: {per_device_train_batch_size: 22, gradient_accumulation_steps: 1}}
+  "9B":   {training: {per_device_train_batch_size: 22, gradient_accumulation_steps: 1}}
+  "27B":  {training: {per_device_train_batch_size: 1, gradient_accumulation_steps: 32, per_device_eval_batch_size: 4}}

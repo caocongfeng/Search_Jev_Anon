@@ -1,0 +1,40 @@
+[project]
+name = "searchjev"
+version = "0.1.0"
+description = "SearchJev: a fast and calibrated System-1 model for search agents (training code)"
+license = "Apache-2.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # exact versions used for the paper runs (8x H200, CUDA 12.8)
+    "torch==2.11.0",
+    "transformers==5.17.0",
+    "peft==0.21.0",
+    "accelerate==1.15.0",
+    "datasets==5.0.1",
+    "bitsandbytes==0.50.2",
+    "safetensors>=0.8.0",
+    "sentencepiece>=0.2.0",
+    "huggingface_hub>=1.32",
+    # fast kernels for the Qwen3.5 Gated-DeltaNet (linear attention) layers
+    "flash-linear-attention==0.5.2",
+    "tilelang==0.1.14",
+    "numpy>=2.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.66",
+    "scikit-learn>=1.5",
+    "wandb>=0.20",
+    "setuptools",
+    "ninja",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
