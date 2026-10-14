@@ -9,7 +9,14 @@ distribution over the legal values of every field in a single forward pass of a 
 without autoregressive decoding.
 
 <p align="center">
-  <img src="assets/overview.png" alt="Architecture of the Dual-System Search Agent" width="100%">
+  <img src="assets/decision.png" alt="Search decision performance" width="60%">
+</p>
+
+*Search decision performance. On SearchDecision-Bench, SearchJev achieves 5.2-5.3x faster decisions than
+same-size Qwen3.5. The x-axis uses Qwen3.5-4B as the 1x reference.*
+
+<p align="center">
+  <img src="assets/architecture.png" alt="Architecture of the Dual-System Search Agent" width="100%">
 </p>
 
 *Architecture of the Dual-System Search Agent. System 2 handles planning, query generation, and final
