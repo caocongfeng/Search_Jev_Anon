@@ -1,6 +1,6 @@
 # SearchJev
 
-Training code for **SearchJev: A Fast and Calibrated System-1 Model for Search Agents**.
+Training code for **SearchJev: A Calibrated System-1 Model for Search Agents**.
 
 SearchJev turns the short, structured decisions of a search agent (is this document relevant? is the
 evidence sufficient? where should the next query go? which link next?) into schema-conditioned typed
@@ -8,13 +8,17 @@ prediction. Given a search state and a decision schema, it returns a calibrated 
 distribution over the legal values of every field in a single forward pass of a Qwen3.5 backbone,
 without autoregressive decoding.
 
+<p align="center">
+  <img src="assets/overview.png" alt="Architecture of the Dual-System Search Agent" width="100%">
+</p>
+
+*Architecture of the Dual-System Search Agent. System 2 handles planning, query generation, and final
+answer synthesis, while SearchJev (System 1) makes search decisions specified by the schema at each step.
+Confident decisions are accepted; uncertain ones are delegated to System 2. The search controller uses the
+resolved decisions to select actions and update the search state with retrieved evidence.*
+
 Everything is open: code, data, model weights, and the complete training logs
 (links are anonymized for review).
-
-| | |
-|---|---|
-| Data (SearchDecision-Bench) and model weights | anonymized for review |
-| Training logs (W&B report, full training runs) | anonymized for review |
 
 This repository contains the complete training pipeline used for the paper models
 (SearchJev-0.8B and SearchJev-4B; the same recipe also trains the 9B backbone):
@@ -152,15 +156,6 @@ print(result.choice, result.confidence, result.probabilities)
 
 `predictor.answer_jev(row)` answers every question of a row in the JEV format used by the data files.
 
-## Citation
-
-```bibtex
-@misc{anonymous2026searchjev,
-  title  = {{SearchJev}: A Fast and Calibrated System-1 Model for Search Agents},
-  author = {Anonymous},
-  year   = {2026}
-}
-```
 
 ## License
 
